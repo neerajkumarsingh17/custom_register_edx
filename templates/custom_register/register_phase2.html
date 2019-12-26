@@ -1,0 +1,220 @@
+
+
+
+<%!
+import json
+from django.utils.translation import ugettext as _
+from openedx.core.djangolib.js_utils import dump_js_escaped_json
+%>
+<%inherit file="../main.html" />
+
+<%namespace name='static' file='../static_content.html'/>
+<%block name="pagetitle">${_("Register")}</%block>
+<link href="${static.url('firki/css/custom-register.css')}" rel="stylesheet">
+
+<div class="content-wrapper tfi-content-wrapper" id="content">
+	<div class="sign-up-box">
+	
+		<div class="container">
+		<div class='register-popup'>
+			<h3>Profile</h3>
+			<div class="sign-step">
+
+					<div class="row">
+						<div class="col-sm-12">
+							<div class="form-group dis-picture">
+								<label for="flair_url">Display Picture</label>
+			                    <div class="content">
+				                    <div class="box">
+				                    	<input type="file" name="file" id="create_display_pocture" class="displayfile" accept="image/x-png,image/gif,image/jpeg" onchange="profileImg()">
+				                    	<label for="create_display_pocture" class="avatar-choose">
+				                    	<i class="fa fa-camera" aria-hidden="true"></i>
+										<div class="buttonload" style="margin: -24px 0 0 -10px;" hidden></div>
+				                    	<span class="filepicvalue">Choose a file…</span>
+										<div id='picture_success'></div>
+										<div id='imgsize'></div>
+				                    	</label>
+				                    </div>				
+			                    </div>
+		                	</div>
+                    	</div>
+						<div class="col-sm-12">
+							<div class="form-group">
+								<label>Full Name</label>
+								<input type="text" name="" value='${name}' class="user-full-name" id='full_name' placeholder="Full Name">
+								<div id='error_name'></div>
+								<p>0/50</p>
+								<span class="focus-border"></span>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="row">
+								<div class="col-sm-3">
+									<div class="form-group select-box">
+										<label>Gender</label>
+										<select class="form-control" id='user_gender'>
+											<option value='m'>Male</option>
+											<option value='f'>Female</option>
+											<option value='o'>Other/Prefer Not to Say</option>
+										</select>
+									</div>
+								</div>
+								<div class="col-sm-3">
+									<div class="form-group select-box">
+										<label>Year of birth</label>
+										<select class="form-control" id='user_doby'>
+										% for year_of_birth in year_of_births:
+											<option value='${year_of_birth}'>${year_of_birth}</option>
+										% endfor
+										</select>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="row">
+								<div class="col-sm-3">
+									<div class="form-group select-box">
+										<label>Highest Level of Education Completed</label>
+										<select class="form-control" id='user_hloec'>
+											<option value="p">Doctorate</option>
+											<option value='m'>Master's or professional degree</option>
+											<option value='b'>Bachelor's degree</option>
+											<option value='a'>Associate degree</option>
+											<option value='hs'>Secondary/high school</option>
+											<option value='jhs'>Junior secondary/junior high/middle school</option>
+											<option value='el'>Elementary/primary school</option>
+											<option value='none'>No Formal Education</option>
+											<option value='other'>Other Education</option>
+										</select>
+									</div>
+								</div>
+								
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group">
+								<label>Mailing Address</label>
+								<input type="text" name="" class="user-full-name" id='user_mailadd' placeholder="Mailing Address">
+								<p>0/120</p>
+								<span class="focus-border"></span>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group">
+								<label>Tell us why you're interested in firki</label>
+								<input type="text" name="" class="user-full-name" id='user_goal' placeholder="Tell us why you're interested in firki">
+								<p>0/120</p>
+								<span class="focus-border"></span>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group sub-box">
+								<button class="profile-btn" onclick="profile_complete()" id="load2" data-loading-text="<i class='fa fa-spinner fa-spin '></i> complete profile">complete profile</button>
+								<button class="skip-btn" onclick="skip_page()">skip</button>
+							</div>
+						</div>
+
+					</div>
+			</div>
+			</div>
+		</div>
+	
+	</div>
+</div>
+<script>
+ function profileImg() {
+	this.event.preventDefault();
+	$(".buttonload").show();
+      var name = document.getElementById('create_display_pocture');
+      var fileName = name.files.item(0).name;
+      $(".filepicvalue").html(fileName);
+      var filePath=$('#create_display_pocture').val(); 
+	  var image_file = document.getElementById("create_display_pocture").files[0];
+	  if (image_file.size > 1048576) {
+			$('#imgsize').html("<div style='color:#f00;font-size: x-small'>File is too big! File must be less than 1 megabytes.</div>");
+			$(".buttonload").hide();
+			return 0;
+		} 
+	  var fd = new FormData(); 
+	  	fd.append("api_key", '${api_key}');
+		fd.append("api_username", '${api_username}');
+		fd.append("type", "avatar");
+		fd.append("user_id", "${user_id}");
+		fd.append("files[]", image_file);
+		fd.append("synchronous", "true");
+
+	$.ajax({
+		method:'POST',
+		url: "/discourse/avatarUpload/",
+		data: fd,
+		headers: {"Content-Type": "multipart/form-data" },
+		contentType: false,
+        processData: false,
+		success: function(data){
+			$(".buttonload").hide();
+			if(data.status==200){
+				$('#picture_success').html("<div style='color:#49903c;font-size: small'>Picture upload successfully</div>")
+				$('.filepicvalue').append("<i class='fas fa-check-circle' aria-hidden='true' style='color:#49903c;display: contents;'></i>")
+			}
+		},
+		error: function( error ) {
+			$(".buttonload").hide();
+		}
+	});
+}    
+            
+function skip_page() {
+	this.event.preventDefault();
+    window.location.href = window.origin+"/dashboard#/home"
+}
+
+function profile_complete() {
+	this.event.preventDefault();
+  	$('#load2').button('loading');
+    var name = $('#full_name').val();
+    var gender = $('#user_gender').val();
+    var year_of_birth = parseInt($('#user_doby').val());
+    var level_of_education = $('#user_hloec').val();
+    var mailing_address = $('#user_mailadd').val();
+    var goals = $('#user_goal').val();
+	if(!name){
+		$('#error_name').html("<div style='color:#f00;'>Please fill User name.</div>")
+	}else{
+		$('#error_name').html("<div></div>")
+	}
+
+	var csrftoken = document.cookie.split(";")
+      .filter(e => { return e.includes("csrf"); })[0].split("=")[1];
+	if(name){
+		 $.ajax({
+        url: '/discourse/updateUserInfoInRegister/',
+        type: 'get',
+        headers: {
+            'X-CSRFToken': csrftoken
+        },
+        data: { "name": name, "gender": gender, "year_of_birth":year_of_birth, "level_of_education":level_of_education, 
+                "mailing_address":mailing_address,"goals":goals,
+         },
+        success: function(data){
+			$('#load2').button('reset');
+			if(data.status==200){
+				window.location.href = window.origin+"/dashboard#/home"
+			}
+		},
+		error: function( error ) {
+			$('#load2').button('reset');
+		}
+	});
+	}
+   
+}
+
+
+
+</script>

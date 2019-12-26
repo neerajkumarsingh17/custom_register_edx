@@ -1,0 +1,264 @@
+<%!
+import third_party_auth
+import json
+from third_party_auth import pipeline, provider
+from django.utils.translation import ugettext as _
+from django_countries import countries
+from student.models import UserProfile
+from openedx.core.djangolib.js_utils import dump_js_escaped_json
+%>
+
+<%inherit file="main.html" />
+
+<%namespace name='static' file='static_content.html'/>
+<%block name="pagetitle">${_("Register")}</%block>
+<link href="${static.url('firki/css/custom-register.css')}" rel="stylesheet">
+<div class="content-wrapper tfi-content-wrapper" id="content">
+	<div class="sign-up-box">
+		<div class="container">
+		<div class='register-popup'>
+			<h3>Sign Up</h3>
+			<div class="sign-step">
+					<div class="row">
+						<div class="col-sm-12">
+							<div class="form-group">
+								<label>User Name*</label>
+								<input type="text" name="" class="user-full-name" value="${username}" id="username_reg" placeholder="User Name">
+								<input type="hidden" name="" class="user-full-name" value="${name}" id="profilename_reg" placeholder="User Name">
+								
+								<div id='error_message' style='color:#f00;'></div>
+								<span class="focus-border"></span>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group">
+								<label>Email*</label>
+								<input type="Email" name="" class="user-full-name" id="email_reg" value="${email}" placeholder="email@domain.com">
+								<div id='error_message_email' style='color:#f00;'></div>
+								<span class="focus-border"></span>
+							</div>
+						</div>
+
+				   % if third_party_auth.is_enabled() and running_pipeline:
+				     <input hidden type="Password" name="" class="user-full-name" id="password_reg" placeholder="Password">
+				   % else:
+					 <div class="col-sm-12">
+							<div class="form-group">
+								<label>Password*</label>
+								<input type="Password" name="" class="user-full-name" id="password_reg" placeholder="Password">
+								<div id='error_message_password' style='color:#f00;'></div>
+								<span class="focus-border"></span>
+							</div>
+						</div>
+
+					% endif
+						
+
+						<div class="col-sm-12">
+							<div class="form-group prim-box">
+								I agree to the 
+								<input type="checkbox" name="" value="" id="terms_of_service">
+								<a href="/tos" style="color:#01aec5">Firki terms of service*</a>
+								<div id='error_message_service'></div>
+								<span class="checkmark"></span>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group sub-box">
+								<button onclick="myRegister()" id="register_custom" value="Sign Up" class="btn"  data-loading-text="<i class='fa fa-spinner fa-spin '></i> Submit">Submit</button>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group sub-box">
+
+									% if third_party_auth.is_enabled():
+
+									% if not running_pipeline:
+
+									<div class="form-actions form-third-party-auth">
+
+									% for enabled in provider.Registry.accepting_logins():
+										## Translators: provider_name is the name of an external, third-party user authentication service (like Google or LinkedIn).
+										<button type="submit" class="up-btn button button-primary button-${enabled.provider_id} register-${enabled.provider_id}" onclick="thirdPartySignin(event, '${pipeline_urls[enabled.provider_id]}');">
+										% if enabled.icon_class:
+										<span class="icon fa ${enabled.icon_class}" aria-hidden="true"></span>
+										% else:
+										<span class="icon" aria-hidden="true"><img class="icon-image" src="${enabled.icon_image.url}" alt="${enabled.name} icon" /></span>
+										% endif
+										${_('Sign up with {provider_name}').format(provider_name=enabled.name)}
+										</button>
+									% endfor
+
+									</div>
+
+									<span class="deco-divider">
+										## Developers: this is a sentence fragment, which is usually frowned upon.  The design of the pags uses this fragment to provide an "else" clause underneath a number of choices.  It's OK to leave it.
+										## Translators: this is the last choice of a number of choices of how to log in to the site.
+										<p class="copy">${_('or')}</p>
+									</span>
+
+									<p class="instructions">
+										${_('Create your own {platform_name} account below').format(platform_name=platform_name)}
+										<span class="note">${_('Required fields are noted by <strong class="indicator">bold text and an asterisk (*)</strong>.')}</span>
+									</p>
+
+
+									% else:
+
+									<p class="instructions">
+										## Translators: selected_provider is the name of an external, third-party user authentication service (like Google or LinkedIn).
+										${_("You've successfully signed in with {selected_provider}.").format(selected_provider='<strong>%s</strong>' % selected_provider)}<br />
+										${_("We just need a little more information before you start learning with {platform_name}.").format(platform_name=settings.PLATFORM_NAME)}
+									</p>
+
+									% endif
+
+									% else:
+
+									<!-- <p class="instructions">
+									${_("Please complete the following fields to register for an account. ")}<br />
+									${_('Required fields are noted by <strong class="indicator">bold text and an asterisk (*)</strong>.')}
+									</p> -->
+
+									% endif
+								<h5>Already have an account? <a href="/login"> Sign In</a></h5>
+							</div>
+						</div>
+					</div>
+
+			</div>
+		</div>
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript">
+	var provider = null;
+	var access_token = null;
+	var haveProvider = false;
+	$(function(){
+	% if third_party_auth.is_enabled() and running_pipeline:
+		haveProvider = true;
+		$('#terms_of_service').attr("checked","checked");
+		provider = "${running_pipeline['backend']}";
+		access_token = "${running_pipeline['kwargs']['response']['access_token']}";
+		myRegister();
+	% endif
+	})
+	
+	function thirdPartySignin(event, url) {
+      event.preventDefault();
+      window.location.href = url;
+    }
+   
+	function myRegister() {
+		this.event.preventDefault();
+		//username client side validation
+		var hasError = false;
+		var username = $('#username_reg').val();
+		if(!username){
+			$('#error_message').html("<div style='color:#f00;'>Please fill Username.</div>");
+			hasError =true;
+		}else{
+			$('#error_message').html("<div></div>")
+		}
+
+		//email client side validation 
+		var email_id = $('#email_reg').val();
+		if(!email_id){
+			$('#error_message_email').html("<div style='color:#f00;'>Please fill email ID.</div>");
+			hasError =true;
+		}else{
+			$('#error_message_email').html("<div></div>")
+		}
+
+		
+		var full_name = $('#profilename_reg').val();
+		if(!full_name){
+			var full_name = $('#username_reg').val();
+		}
+
+		//terms of service client side validation 
+		var terms_of_service = $('#terms_of_service').is(':checked');
+		if(!terms_of_service){
+			$('#error_message_service').html("<div style='color:#f00; font-size: small;'>Please check this box if you want to proceed</div>");
+			hasError = true;
+		}else{
+			$('#error_message_service').html("<div></div>")
+		}
+
+		var honor_code = true;
+
+		//Password client side validation 
+		var password = $('#password_reg').val();
+		if(!haveProvider){
+			if(username && email_id && terms_of_service && !password){
+				$('#error_message_password').html("<div style='color:#f00;'>Enter a password</div>");
+				hasError =true;
+			}else{
+				$('#error_message_password').html("<div></div>")
+			}
+		}
+
+		//for ajax calculate csrftoken 
+		var csrftoken = document.cookie.split(";")
+		.filter(e => { return e.includes("csrf"); })[0].split("=")[1];
+
+		if(hasError)
+			return 0;
+
+		
+		$('#register_custom').button('loading');
+
+        var data ={ "email": email_id, "name": full_name, "username":username, "password":password, 
+				"terms_of_service":terms_of_service,"honor_code":honor_code	};
+			
+		if(haveProvider)
+		{
+		   data.provider =provider;
+		   data.access_token = access_token;
+		}
+		$.ajax({
+		url: '/custom_register/create_user/',
+		type: 'post',
+		headers: {
+			'X-CSRFToken': csrftoken
+		},
+		data: data,
+		success: function(data){
+			// button loader icon reset after result
+			$('#register_custom').button('reset');
+
+			// after success redirect register second page  
+			if(data.success=true){
+				window.location.href = window.origin+"/custom_register/step2/"
+			}
+		},
+		error: function( error ) {
+			// button loader icon reset after result
+			$('#register_custom').button('reset');
+
+			//username server side validation 
+			if(error.responseJSON["username"]){
+			if(error.responseJSON["username"][0]["user_message"]){
+				$('#error_message').html(error.responseJSON.username[0]['user_message'])
+			}}
+
+			//email server side validation 
+			if(error.responseJSON["email"]){
+			if(error.responseJSON["email"][0]["user_message"]){
+				$('#error_message_email').html(error.responseJSON.email[0]['user_message'])
+			}}
+
+			//Password server side validation 
+			if(error.responseJSON["password"]){
+			if(error.responseJSON["password"][0]["user_message"]){
+				$('#error_message_password').html(error.responseJSON.password[0]['user_message'])
+			}}
+		}
+		});
+	}
+</script>

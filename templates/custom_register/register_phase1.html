@@ -1,0 +1,178 @@
+<%!
+import json
+from django.utils.translation import ugettext as _
+from openedx.core.djangolib.js_utils import dump_js_escaped_json
+%>
+<%inherit file="../main.html" />
+
+<%namespace name='static' file='../static_content.html'/>
+<%block name="pagetitle">${_("Register")}</%block>
+<link href="${static.url('firki/css/custom-register.css')}" rel="stylesheet">
+<div class="content-wrapper tfi-content-wrapper" id="content">
+	<div class="sign-up-box">
+		<div class="container">
+			<h3>Sign Up</h3>
+			<div class="sign-step">
+				<h4>Step 1</h4>
+					<div class="row">
+						<div class="col-sm-12">
+							<div class="form-group">
+								<label>User Name</label>
+								<input type="text" name="" class="user-full-name" id="username_reg" placeholder="User Name" required>
+								<div id='error_message' style='color:#f00;'></div>
+								<span class="focus-border"></span>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group">
+								<label>Email</label>
+								<input type="Email" name="" class="user-full-name" id="email_reg" placeholder="email@domain.com" required>
+								<div id='error_message_email' style='color:#f00;'></div>
+								<span class="focus-border"></span>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group">
+								<label>Password</label>
+								<input type="Password" name="" class="user-full-name" id="password_reg" placeholder="Password" required>
+								<div id='error_message_password' style='color:#f00;'></div>
+								<span class="focus-border"></span>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group prim-box">
+								I agree to the <span>Firki terms of service</span>
+								<input type="checkbox" name="" value="" id="terms_of_service" required>
+								<div id='error_message_service'></div>
+								<span class="checkmark"></span>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group sub-box">
+								<button onclick="myRegister()" id="register_custom" value="Sign Up" class="btn"  data-loading-text="<i class='fa fa-spinner fa-spin '></i> Submit">Submit</button>
+							</div>
+						</div>
+
+						<div class="col-sm-12">
+							<div class="form-group sub-box">
+								<button class="up-btn button button-primary button-oa2-google-oauth2 login-provider register-oa2-google-oauth2" onclick="window.location.href = window.origin+'/auth/login/google-oauth2/?auth_entry=account_register'">Sign Up with Google</button><!--/auth/login/google-oauth2/?auth_entry=account_register-->
+								<p>Or</p>
+								<h5>Already have an account? <a href="/login"> Sign In</a></h5>
+							</div>
+						</div>
+					</div>
+
+			</div>
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript">
+
+    $("#terms_of_service").on('change', function() {
+      if ($(this).is(':checked')) {
+        $(this).attr('value', 'true');
+      } else {
+        $(this).attr('value', 'false');
+      }
+    });
+  function myRegister() {
+	this.event.preventDefault();
+	//username client side validation
+    var username = $('#username_reg').val();
+	if(!username){
+		$('#error_message').html("<div style='color:#f00;'>Please fill User name.</div>")
+	}else{
+		$('#error_message').html("<div></div>")
+	}
+
+	//email client side validation 
+    var email_id = $('#email_reg').val();
+	if(!email_id){
+		$('#error_message_email').html("<div style='color:#f00;'>Please fill email ID.</div>")
+	}else{
+		$('#error_message_email').html("<div></div>")
+	}
+
+    var full_name = $('#username_reg').val();
+
+	//terms of service client side validation 
+    var terms_of_service = $('#terms_of_service').val();
+	if(!terms_of_service){
+		$('#error_message_service').html("<div style='color:#f00; font-size: small;'>Please check this box if you want to proceed</div>")
+	}else{
+		$('#error_message_service').html("<div></div>")
+	}
+
+    var honor_code = $('#terms_of_service').val();
+
+	//Password client side validation 
+	var password = $('#password_reg').val();
+	if(username && email_id && terms_of_service && !password){
+		$('#error_message_password').html("<div style='color:#f00;'>Enter a password</div>")
+	}else{
+		$('#error_message_password').html("<div></div>")
+	}
+
+	//for ajax calculate csrftoken 
+    var csrftoken = document.cookie.split(";")
+      .filter(e => { return e.includes("csrf"); })[0].split("=")[1];
+
+	//before api ajax hit condition check  
+	if(username && email_id && password && terms_of_service){
+		// button loader icon start 
+		$('#register_custom').button('loading');
+
+		$.ajax({
+        url: '/register/custom_register/',
+        type: 'post',
+        headers: {
+            'X-CSRFToken': csrftoken
+        },
+        data: { "email": email_id, "name": username, "username":username, "password":password, 
+                "terms_of_service":terms_of_service,"honor_code":honor_code,
+         },
+        success: function(data){
+			// after success redirect register second page  
+			if(data.success=true){
+				window.location.href = window.origin+"/register/step2/"
+			}
+
+			// button loader icon reset after result
+			$('#register_custom').button('reset');
+
+		},
+		error: function( error ) {
+			//username server side validation 
+			if(error.responseJSON["username"]){
+			if(error.responseJSON["username"][0]["user_message"]){
+				$('#error_message').html(error.responseJSON.username[0]['user_message'])
+			}}
+
+			//email server side validation 
+			if(error.responseJSON["email"]){
+			if(error.responseJSON["email"][0]["user_message"]){
+				$('#error_message_email').html(error.responseJSON.email[0]['user_message'])
+			}}
+
+			//Password server side validation 
+			if(error.responseJSON["password"]){
+			if(error.responseJSON["password"][0]["user_message"]){
+				$('#error_message_password').html(error.responseJSON.password[0]['user_message'])
+			}}
+
+			// button loader icon reset after result
+			$('#register_custom').button('reset');
+		}
+    });
+	}
+	else{
+		return 0;
+	}
+   
+  }
+</script>
